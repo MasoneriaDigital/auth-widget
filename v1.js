@@ -584,7 +584,17 @@
     if (p1 !== p2) { toast('Las palabras de paso no coinciden.', 'error'); return; }
     btn.disabled = true;
     btn.textContent = 'Guardando…';
-    supa.auth.updateUser({ password: p1 }).then(function (res) {
+
+    // En invitaciones el nombre llegó en metadata.name; lo promovemos a username
+    // (estándar del registro normal) para que se muestre y persista bien.
+    var meta = (session && session.user && session.user.user_metadata) || {};
+    var inviteName = meta.name || meta.full_name || null;
+    var attrs = { password: p1 };
+    if (setPasswordMode === 'invite' && inviteName && !meta.username) {
+      attrs.data = { username: inviteName };
+    }
+
+    supa.auth.updateUser(attrs).then(function (res) {
       btn.disabled = false;
       btn.textContent = 'Guardar y entrar';
       if (res.error) {
@@ -598,8 +608,16 @@
       toast(wasRecovery ? 'Palabra de paso actualizada.' : '¡Bienvenido! Tu cuenta está activa.', 'success');
       $('#md-auth-set-password-1', modalEl).value = '';
       $('#md-auth-set-password-2', modalEl).value = '';
-      // Ya hay sesión válida: mostramos el perfil.
-      refreshProfile().then(function () {
+
+      // Si promovimos un nombre, asegúralo también en la fila de profiles
+      // (por si el trigger de signup la creó sin username para los invitados).
+      var ensureProfile = (attrs.data && attrs.data.username && session && session.user)
+        ? supa.from('profiles').update({ username: attrs.data.username }).eq('id', session.user.id).then(function(){}, function(){})
+        : Promise.resolve();
+
+      ensureProfile.then(function () {
+        return refreshProfile();
+      }).then(function () {
         renderTrigger();
         showView('profile');
       });
@@ -663,12 +681,22 @@
       .catch(function () { /* swallow */ });
   }
 
+  // Mejor nombre disponible para mostrar. Orden: perfil → metadata.username
+  // (registro normal) → metadata.name (invitados) → parte local del email.
+  function userDisplayName() {
+    if (!session || !session.user) return 'Usuario';
+    var meta = session.user.user_metadata || {};
+    return (profile && profile.username) ||
+           meta.username ||
+           meta.name ||
+           meta.full_name ||
+           (session.user.email ? session.user.email.split('@')[0] : 'Usuario');
+  }
+
   function renderTrigger() {
     if (!triggerEl) return;
     if (session && session.user) {
-      var name = (profile && profile.username) ||
-                 (session.user.user_metadata && session.user.user_metadata.username) ||
-                 (session.user.email ? session.user.email.split('@')[0] : 'Usuario');
+      var name = userDisplayName();
       triggerEl.classList.remove('logged-out');
       triggerEl.classList.add('logged-in');
       triggerEl.setAttribute('aria-label', 'Abrir mi perfil');
@@ -689,7 +717,7 @@
   function renderProfileView() {
     if (!profile) {
       // still render available info from session
-      var fallbackName = session && session.user && (session.user.user_metadata && session.user.user_metadata.username) || 'Usuario';
+      var fallbackName = userDisplayName();
       $('#md-auth-profile-avatar', modalEl).textContent = initials(fallbackName);
       $('#md-auth-profile-username', modalEl).textContent = fallbackName;
       $('#md-auth-profile-email', modalEl).textContent = (session && session.user && session.user.email) || '';
@@ -698,8 +726,8 @@
       $('#md-auth-profile-ranking', modalEl).textContent = '#—';
       return;
     }
-    $('#md-auth-profile-avatar', modalEl).textContent = initials(profile.username);
-    $('#md-auth-profile-username', modalEl).textContent = profile.username || 'Usuario';
+    $('#md-auth-profile-avatar', modalEl).textContent = initials(profile.username || userDisplayName());
+    $('#md-auth-profile-username', modalEl).textContent = profile.username || userDisplayName();
     $('#md-auth-profile-email', modalEl).textContent = (session.user && session.user.email) || '';
     $('#md-auth-profile-coins', modalEl).textContent = String(profile.profane_coins != null ? profile.profane_coins : 0);
     $('#md-auth-profile-games', modalEl).textContent = String(profile.games_played != null ? profile.games_played : 0);
