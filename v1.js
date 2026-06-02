@@ -265,6 +265,7 @@
           '<div class="md-auth-stat"><div class="md-auth-stat-value" id="md-auth-profile-ranking">#—</div><div class="md-auth-stat-label">🏆 Ranking</div></div>' +
         '</div>' +
         '<a id="md-auth-profile-trivia-link" class="md-auth-btn-primary md-auth-btn-block" href="' + escapeHTML(TRIVIA_URL) + '">⚔ Jugar Desafío 33</a>' +
+        '<button id="md-auth-invite-btn" type="button" class="md-auth-btn-ghost" style="margin-top:10px">✉ Invita a alguien para competir</button>' +
         '<div class="md-auth-unlock-teaser">' +
           '<div class="md-auth-unlock-title">Próximos desbloqueos</div>' +
           '<ul class="md-auth-unlock-list">' +
@@ -274,6 +275,31 @@
           '</ul>' +
         '</div>' +
         '<button id="md-auth-logout-btn" type="button" class="md-auth-btn-ghost">Cerrar sesión</button>' +
+      '</div>' +
+
+      // invite (logged-in: invitar a un amigo)
+      '<div class="md-auth-view md-auth-view-invite">' +
+        '<h2 class="md-auth-title">Invitar a competir</h2>' +
+        '<p class="md-auth-sub">Convoca a alguien a la Cámara Profana. Le llegará una invitación personal para unirse al Desafío 33.</p>' +
+        '<form id="md-auth-form-invite" novalidate>' +
+          '<label><span>Nombre del invitado</span><input type="text" id="md-auth-invite-name" required maxlength="60" autocomplete="name"/></label>' +
+          '<label><span>Email del invitado</span><input type="email" id="md-auth-invite-email" required autocomplete="off"/></label>' +
+          '<button type="submit" class="md-auth-btn-primary">Enviar invitación</button>' +
+        '</form>' +
+        '<div class="md-auth-links">' +
+          '<a href="#" data-md-auth-goto="profile">Volver a mi perfil</a>' +
+        '</div>' +
+      '</div>' +
+
+      // set-password (al llegar desde un invite o un reset de contraseña)
+      '<div class="md-auth-view md-auth-view-set-password">' +
+        '<h2 class="md-auth-title md-auth-title-success">Crea tu palabra de paso</h2>' +
+        '<p class="md-auth-sub" id="md-auth-set-password-sub">Elige una palabra de paso para activar tu acceso y poder volver a entrar cuando quieras.</p>' +
+        '<form id="md-auth-form-set-password" novalidate>' +
+          '<label><span>Nueva palabra de paso</span><input type="password" id="md-auth-set-password-1" required minlength="6" autocomplete="new-password"/></label>' +
+          '<label><span>Repite la palabra de paso</span><input type="password" id="md-auth-set-password-2" required minlength="6" autocomplete="new-password"/></label>' +
+          '<button type="submit" class="md-auth-btn-primary">Guardar y entrar</button>' +
+        '</form>' +
       '</div>' +
     '</div>';
 
@@ -405,6 +431,20 @@
     });
     // Logout
     $('#md-auth-logout-btn', modalEl).addEventListener('click', handleLogout);
+    // Invite: open the invite view
+    $('#md-auth-invite-btn', modalEl).addEventListener('click', function () {
+      showView('invite');
+    });
+    // Invite form
+    $('#md-auth-form-invite', modalEl).addEventListener('submit', function (e) {
+      e.preventDefault();
+      handleInvite();
+    });
+    // Set-password form (invite / recovery arrival)
+    $('#md-auth-form-set-password', modalEl).addEventListener('submit', function (e) {
+      e.preventDefault();
+      handleSetPassword();
+    });
   }
 
   function openModal(view) {
@@ -502,6 +542,96 @@
     });
   }
 
+  function handleInvite() {
+    var btn = $('#md-auth-form-invite button[type=submit]', modalEl);
+    var name = $('#md-auth-invite-name', modalEl).value.trim();
+    var email = $('#md-auth-invite-email', modalEl).value.trim();
+    if (!name) { toast('El nombre del invitado es obligatorio.', 'error'); return; }
+    if (!email) { toast('El email del invitado es obligatorio.', 'error'); return; }
+    btn.disabled = true;
+    btn.textContent = 'Enviando…';
+    supa.functions.invoke('invite-user', {
+      body: { name: name, email: email }
+    }).then(function (res) {
+      btn.disabled = false;
+      btn.textContent = 'Enviar invitación';
+      // supa.functions.invoke surfaces non-2xx as res.error; the JSON body is in res.data
+      var data = res.data || {};
+      if (res.error || data.error) {
+        var msg = data.error || 'No se pudo enviar la invitación.';
+        toast(msg, 'error');
+      } else {
+        toast(data.message || ('Invitación enviada a ' + email + '.'), 'success');
+        $('#md-auth-invite-name', modalEl).value = '';
+        $('#md-auth-invite-email', modalEl).value = '';
+        showView('profile');
+      }
+    }).catch(function () {
+      btn.disabled = false;
+      btn.textContent = 'Enviar invitación';
+      toast('No se pudo enviar la invitación.', 'error');
+    });
+  }
+
+  // Modo con el que se abrió set-password: 'invite' o 'recovery'.
+  var setPasswordMode = null;
+
+  function handleSetPassword() {
+    var btn = $('#md-auth-form-set-password button[type=submit]', modalEl);
+    var p1 = $('#md-auth-set-password-1', modalEl).value;
+    var p2 = $('#md-auth-set-password-2', modalEl).value;
+    if (p1.length < 6) { toast('La palabra de paso debe tener al menos 6 caracteres.', 'error'); return; }
+    if (p1 !== p2) { toast('Las palabras de paso no coinciden.', 'error'); return; }
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+    supa.auth.updateUser({ password: p1 }).then(function (res) {
+      btn.disabled = false;
+      btn.textContent = 'Guardar y entrar';
+      if (res.error) {
+        var msg = res.error.message || 'No se pudo guardar la palabra de paso.';
+        if (/should be different|same as the old/i.test(msg)) msg = 'Elige una palabra de paso distinta a la anterior.';
+        toast(msg, 'error');
+        return;
+      }
+      var wasRecovery = setPasswordMode === 'recovery';
+      setPasswordMode = null;
+      toast(wasRecovery ? 'Palabra de paso actualizada.' : '¡Bienvenido! Tu cuenta está activa.', 'success');
+      $('#md-auth-set-password-1', modalEl).value = '';
+      $('#md-auth-set-password-2', modalEl).value = '';
+      // Ya hay sesión válida: mostramos el perfil.
+      refreshProfile().then(function () {
+        renderTrigger();
+        showView('profile');
+      });
+    });
+  }
+
+  // Detecta si la URL actual viene de un enlace de invite o de recovery.
+  // Supabase añade los tokens en el hash (#access_token=...&type=recovery|invite)
+  // o, con el flujo PKCE, ?code=... — en ese caso nos apoyamos en el evento
+  // PASSWORD_RECOVERY de onAuthStateChange.
+  function detectArrivalType() {
+    var hash = window.location.hash || '';
+    var qs = window.location.search || '';
+    var m = /[#&?]type=(\w+)/.exec(hash) || /[?&]type=(\w+)/.exec(qs);
+    var type = m ? m[1] : null;
+    if (type === 'recovery' || type === 'invite' || type === 'signup') return type;
+    return null;
+  }
+
+  function openSetPassword(mode) {
+    setPasswordMode = mode;
+    var sub = $('#md-auth-set-password-sub', modalEl);
+    if (sub) {
+      sub.textContent = mode === 'recovery'
+        ? 'Introduce tu nueva palabra de paso para volver a entrar.'
+        : 'Elige una palabra de paso para activar tu acceso y poder volver a entrar cuando quieras.';
+    }
+    var title = modalEl.querySelector('.md-auth-view-set-password .md-auth-title');
+    if (title) title.textContent = mode === 'recovery' ? 'Nueva palabra de paso' : 'Crea tu palabra de paso';
+    openModal('set-password');
+  }
+
   function handleLogout() {
     supa.auth.signOut().then(function () {
       closeModal();
@@ -579,6 +709,9 @@
   // -- init -----------------------------------------------------------------
   function init() {
     injectStyles();
+    // Capturamos el tipo de llegada AHORA: detectSessionInUrl limpiará el hash enseguida.
+    var arrivalType = detectArrivalType();
+    var arrivalHandled = false;
     loadSupabaseSDK().then(function () {
       supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
@@ -594,9 +727,33 @@
       supa.auth.onAuthStateChange(function (event, newSession) {
         var wasLoggedOut = !session;
         session = newSession;
+
+        // --- Llegada desde un enlace que exige fijar contraseña ---
+        // Recovery → Supabase emite el evento PASSWORD_RECOVERY.
+        // Invite → llega como SIGNED_IN; lo distinguimos por el type de la URL.
+        if (!arrivalHandled && newSession) {
+          if (event === 'PASSWORD_RECOVERY' || arrivalType === 'recovery') {
+            arrivalHandled = true;
+            refreshProfile().then(function () {
+              renderTrigger();
+              openSetPassword('recovery');
+            });
+            return;
+          }
+          if (arrivalType === 'invite' && event === 'SIGNED_IN') {
+            arrivalHandled = true;
+            refreshProfile().then(function () {
+              renderTrigger();
+              openSetPassword('invite');
+            });
+            return;
+          }
+        }
+
         refreshProfile().then(function () {
           renderTrigger();
-          if (event === 'SIGNED_IN' && wasLoggedOut && modalEl.classList.contains('open')) {
+          if (event === 'SIGNED_IN' && wasLoggedOut && modalEl.classList.contains('open') &&
+              !modalEl.querySelector('.md-auth-view-set-password.active')) {
             // Just signed in via the modal — close it.
             closeModal();
             toast('¡Sesión iniciada!', 'success');
