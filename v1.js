@@ -144,6 +144,66 @@
     });
   }
 
+  // -- shared cross-subdomain cookie storage --------------------------------
+  // Mirrors src/integrations/supabase/cookieStorage.ts EXACTLY (same key, cookie
+  // domain, base64+chunk scheme) so the auth widget (www.masoneria.digital) and
+  // the trivia app (desafio33.masoneria.digital) share one Supabase session via a
+  // cookie scoped to .masoneria.digital. Off-domain → falls back to localStorage.
+  var MD_COOKIE_DOMAIN = '.masoneria.digital';
+  var MD_COOKIE_MAX = 3200;
+  function mdOnMasoneria() {
+    return typeof location !== 'undefined' && /(^|\.)masoneria\.digital$/i.test(location.hostname);
+  }
+  function mdCookieAttrs(maxAge) {
+    var a = '; path=/; max-age=' + maxAge + '; SameSite=Lax';
+    if (typeof location !== 'undefined' && location.protocol === 'https:') a += '; Secure';
+    if (mdOnMasoneria()) a += '; domain=' + MD_COOKIE_DOMAIN;
+    return a;
+  }
+  function mdWriteCookie(name, value) { document.cookie = name + '=' + value + mdCookieAttrs(60 * 60 * 24 * 30); }
+  function mdDelCookie(name) { document.cookie = name + '=' + mdCookieAttrs(0); }
+  function mdReadCookie(name) {
+    var esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    var m = document.cookie.match(new RegExp('(?:^|; )' + esc + '=([^;]*)'));
+    return m ? m[1] : null;
+  }
+  function mdB64encode(s) { return btoa(unescape(encodeURIComponent(s))); }
+  function mdB64decode(s) { return decodeURIComponent(escape(atob(s))); }
+  function mdClearChunks(key) {
+    mdDelCookie(key);
+    var i = 0;
+    while (mdReadCookie(key + '.' + i) !== null) { mdDelCookie(key + '.' + i); i++; }
+  }
+  var MD_USE_LS = !mdOnMasoneria();
+  var MD_COOKIE_STORAGE = {
+    getItem: function (key) {
+      if (MD_USE_LS) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+      var head = mdReadCookie(key);
+      if (head === null) return null;
+      if (head === 'chunked') {
+        var b64 = '', i = 0, part;
+        while ((part = mdReadCookie(key + '.' + i)) !== null) { b64 += part; i++; }
+        if (!b64) return null;
+        try { return mdB64decode(b64); } catch (e) { return null; }
+      }
+      try { return mdB64decode(head); } catch (e) { return null; }
+    },
+    setItem: function (key, value) {
+      if (MD_USE_LS) { try { localStorage.setItem(key, value); } catch (e) {} return; }
+      mdClearChunks(key);
+      var b64 = mdB64encode(value);
+      if (b64.length <= MD_COOKIE_MAX) { mdWriteCookie(key, b64); return; }
+      mdWriteCookie(key, 'chunked');
+      for (var j = 0, idx = 0; j < b64.length; j += MD_COOKIE_MAX, idx++) {
+        mdWriteCookie(key + '.' + idx, b64.slice(j, j + MD_COOKIE_MAX));
+      }
+    },
+    removeItem: function (key) {
+      if (MD_USE_LS) { try { localStorage.removeItem(key); } catch (e) {} return; }
+      mdClearChunks(key);
+    }
+  };
+
   // -- helpers --------------------------------------------------------------
   function $(sel, root) { return (root || document).querySelector(sel); }
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -746,7 +806,10 @@
           autoRefreshToken: true,
           persistSession: true,
           detectSessionInUrl: true,
-          storageKey: 'md-auth-session'
+          storageKey: 'md-auth-session',
+          // Shared with the trivia app across *.masoneria.digital (cookie scoped
+          // to .masoneria.digital). Off-domain → falls back to localStorage.
+          storage: MD_COOKIE_STORAGE
         }
       });
 
