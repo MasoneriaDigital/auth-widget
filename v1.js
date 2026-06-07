@@ -153,7 +153,24 @@
     ".md-notif-item a{color:#B8A36A;text-decoration:none}",
     ".md-notif-cta{display:block;text-align:center;margin-top:12px;padding:10px;border-radius:8px;background:rgba(194,61,224,.22);border:1px solid rgba(194,61,224,.55);color:#fff;font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none}",
     ".md-notif-cta:hover{background:rgba(194,61,224,.32)}",
-    ".md-notif-close{position:absolute;top:8px;right:10px;background:none;border:none;color:#a7a7ad;font-size:18px;cursor:pointer}"
+    ".md-notif-close{position:absolute;top:8px;right:10px;background:none;border:none;color:#a7a7ad;font-size:18px;cursor:pointer}",
+
+    // Share menu (popover above the share FAB)
+    "#md-share-menu{position:fixed;right:18px;bottom:132px;z-index:1201;width:220px;background:#1f1f21;border:1px solid rgba(194,61,224,.4);border-radius:12px;box-shadow:0 14px 40px rgba(0,0,0,.5);padding:8px;display:none;flex-direction:column;gap:2px}",
+    "#md-share-menu.open{display:flex;animation:md-auth-scale .15s ease-out}",
+    ".md-share-opt{display:flex;align-items:center;gap:10px;background:none;border:none;color:#e7e7ea;font:500 13px Montserrat,sans-serif;text-align:left;padding:9px 10px;border-radius:8px;cursor:pointer}",
+    ".md-share-opt:hover{background:rgba(194,61,224,.12)}",
+
+    // Leaderboard view (tabs + rows)
+    ".md-lb-tabs{display:flex;gap:6px;margin:0 0 14px}",
+    ".md-lb-tab{flex:1;padding:9px;background:rgba(255,255,255,.04);border:1px solid rgba(184,163,106,.18);border-radius:8px;color:#a7a7ad;font:600 12px Montserrat,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer;transition:color .2s,border-color .2s,background .2s}",
+    ".md-lb-tab.active{color:#fff;border-color:rgba(194,61,224,.6);background:rgba(194,61,224,.16)}",
+    ".md-lb-list{display:flex;flex-direction:column;gap:4px;max-height:50vh;overflow-y:auto}",
+    ".md-lb-empty{color:#7a7a82;font-size:13px;text-align:center;padding:14px 0}",
+    ".md-lb-row{display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(184,163,106,.14);border-radius:8px}",
+    ".md-lb-rank{min-width:30px;font-weight:700;color:#B8A36A;font-size:13px}",
+    ".md-lb-name{flex:1;color:#e7e7ea;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".md-lb-val{color:#c8c8cd;font-size:13px;font-weight:600;white-space:nowrap}"
   ].join('\n');
 
   function injectStyles() {
@@ -362,6 +379,7 @@
         '</div>' +
         '<a id="md-auth-profile-trivia-link" class="md-auth-btn-primary md-auth-btn-block" href="' + escapeHTML(TRIVIA_URL) + '">⚔ Jugar Desafío 33</a>' +
         '<button id="md-auth-invite-btn" type="button" class="md-auth-btn-ghost" style="margin-top:10px">✉ Invita a alguien para competir</button>' +
+        '<button id="md-auth-leaderboard-btn" type="button" class="md-auth-btn-ghost" style="margin-top:10px">🏆 Ver clasificación</button>' +
         '<div class="md-auth-library">' +
           '<div class="md-auth-library-title">📚 Mi biblioteca <span id="md-auth-reads-count" class="md-auth-library-count"></span></div>' +
           '<div id="md-auth-library-list" class="md-auth-library-list"><div class="md-auth-library-empty">Cargando…</div></div>' +
@@ -369,13 +387,26 @@
         '<div class="md-auth-unlock-teaser">' +
           '<div class="md-auth-unlock-title">Cómo ganar monedas</div>' +
           '<ul class="md-auth-unlock-list">' +
-            '<li>📚 Lee un artículo hasta el final → +20</li>' +
-            '<li>↗ Comparte un artículo → +10</li>' +
-            '<li>⚔ Juega al Desafío 33 → gana medallas</li>' +
-            '<li>✉ Invita a un amigo a competir</li>' +
+            '<li>Lee un artículo hasta el final → +20</li>' +
+            '<li>Comparte un artículo → +10</li>' +
+            '<li>Juega al Desafío 33 → gana medallas</li>' +
+            '<li>Invita a un amigo a competir</li>' +
           '</ul>' +
         '</div>' +
         '<button id="md-auth-logout-btn" type="button" class="md-auth-btn-ghost">Cerrar sesión</button>' +
+      '</div>' +
+
+      // leaderboard (clasificaciones: Lectores + Desafío 33)
+      '<div class="md-auth-view md-auth-view-leaderboard">' +
+        '<h2 class="md-auth-title">Clasificación</h2>' +
+        '<div class="md-lb-tabs">' +
+          '<button type="button" class="md-lb-tab active" data-lb="readers">Lectores</button>' +
+          '<button type="button" class="md-lb-tab" data-lb="trivia">Desafío 33</button>' +
+        '</div>' +
+        '<div id="md-lb-list" class="md-lb-list"></div>' +
+        '<div class="md-auth-links">' +
+          '<a href="#" data-md-auth-goto="profile">Volver a mi perfil</a>' +
+        '</div>' +
       '</div>' +
 
       // invite (logged-in: invitar a un amigo)
@@ -536,6 +567,14 @@
     $('#md-auth-invite-btn', modalEl).addEventListener('click', function () {
       showView('invite');
     });
+    // Leaderboard: open the clasificación view
+    $('#md-auth-leaderboard-btn', modalEl).addEventListener('click', function () {
+      showView('leaderboard');
+    });
+    // Leaderboard tabs
+    $$('.md-lb-tab', modalEl).forEach(function (tab) {
+      tab.addEventListener('click', function () { renderLeaderboard(tab.getAttribute('data-lb')); });
+    });
     // Invite form
     $('#md-auth-form-invite', modalEl).addEventListener('submit', function (e) {
       e.preventDefault();
@@ -570,6 +609,39 @@
     var v = $('.md-auth-view-' + name, modalEl);
     if (v) v.classList.add('active');
     if (name === 'profile') renderProfileView();
+    if (name === 'leaderboard') renderLeaderboard('readers');
+  }
+
+  function renderLeaderboard(tab) {
+    var listEl = $('#md-lb-list', modalEl);
+    if (!listEl) return;
+    $$('.md-lb-tab', modalEl).forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-lb') === tab);
+    });
+    listEl.innerHTML = '<div class="md-lb-empty">Cargando…</div>';
+    var col = tab === 'trivia' ? 'total_score' : 'profane_coins';
+    var q = supa.from('profiles').select('username,' + col).order(col, { ascending: false }).limit(50);
+    q = (tab === 'trivia') ? q.or('games_played.gt.0,total_score.neq.0') : q.gt('profane_coins', 0);
+    q.then(function (res) {
+      if (res.error) { listEl.innerHTML = '<div class="md-lb-empty">No se pudo cargar la clasificación.</div>'; return; }
+      var rows = res.data || [];
+      if (rows.length === 0) {
+        listEl.innerHTML = '<div class="md-lb-empty">' + (tab === 'trivia' ? 'Aún no hay jugadores. ¡Sé el primero en el Desafío 33!' : 'Aún no hay lectores con monedas. ¡Lee un artículo!') + '</div>';
+        return;
+      }
+      var unit = tab === 'trivia' ? '🏅' : '🪙';
+      listEl.innerHTML = '';
+      rows.forEach(function (r, i) {
+        var row = document.createElement('div');
+        row.className = 'md-lb-row';
+        var rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : ('#' + (i + 1));
+        var rk = document.createElement('span'); rk.className = 'md-lb-rank'; rk.textContent = rank;
+        var nm = document.createElement('span'); nm.className = 'md-lb-name'; nm.textContent = r.username || '—';
+        var vl = document.createElement('span'); vl.className = 'md-lb-val'; vl.textContent = unit + ' ' + (r[col] || 0);
+        row.appendChild(rk); row.appendChild(nm); row.appendChild(vl);
+        listEl.appendChild(row);
+      });
+    }).catch(function () { listEl.innerHTML = '<div class="md-lb-empty">No se pudo cargar.</div>'; });
   }
 
   // -- auth handlers --------------------------------------------------------
@@ -914,32 +986,55 @@
     }
   }
 
+  function awardShare() {
+    if (!session || !session.user || !blogArticle) return; // points only for logged-in
+    supa.rpc('award_article_share', {
+      p_slug: blogArticle.slug, p_title: blogArticle.title, p_url: blogArticle.url
+    }).then(function (res) {
+      if (res.error) return;
+      var row = Array.isArray(res.data) ? res.data[0] : res.data;
+      if (row && row.points_awarded > 0) toast('↗ +' + row.points_awarded + ' monedas por compartir', 'success');
+    }).catch(function () {});
+  }
+
+  var shareMenuEl = null;
+  function buildShareMenu() {
+    if (shareMenuEl) return shareMenuEl;
+    shareMenuEl = document.createElement('div');
+    shareMenuEl.id = 'md-share-menu';
+    var opts = [
+      { label: '💬 WhatsApp', go: function (u, t) { window.open('https://wa.me/?text=' + encodeURIComponent(t + ' — ' + u), '_blank'); } },
+      { label: '✈️ Telegram', go: function (u, t) { window.open('https://t.me/share/url?url=' + encodeURIComponent(u) + '&text=' + encodeURIComponent(t), '_blank'); } },
+      { label: '𝕏 X (Twitter)', go: function (u, t) { window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(u) + '&text=' + encodeURIComponent(t), '_blank'); } },
+      { label: '🔗 Copiar enlace', go: function (u) { try { if (navigator.clipboard) navigator.clipboard.writeText(u); toast('Enlace copiado', 'info'); } catch (e) {} } }
+    ];
+    if (navigator.share) {
+      opts.push({ label: '… Más opciones', go: function (u, t) { try { navigator.share({ title: t, url: u }); } catch (e) {} } });
+    }
+    opts.forEach(function (o) {
+      var b = document.createElement('button');
+      b.type = 'button'; b.className = 'md-share-opt'; b.textContent = o.label;
+      b.addEventListener('click', function () {
+        o.go(blogArticle.url, blogArticle.title);
+        shareMenuEl.classList.remove('open');
+        awardShare();
+      });
+      shareMenuEl.appendChild(b);
+    });
+    document.body.appendChild(shareMenuEl);
+    document.addEventListener('click', function (e) {
+      if (shareMenuEl && shareMenuEl.classList.contains('open') &&
+          !shareMenuEl.contains(e.target) && e.target !== shareFab && !(shareFab && shareFab.contains(e.target))) {
+        shareMenuEl.classList.remove('open');
+      }
+    });
+    return shareMenuEl;
+  }
+
   function handleShare() {
     if (!blogArticle) return;
-    var shareUrl = blogArticle.url;
-    var shareTitle = blogArticle.title;
-    var afterShare = function () {
-      if (!session || !session.user) return; // points only for logged-in users
-      supa.rpc('award_article_share', {
-        p_slug: blogArticle.slug, p_title: shareTitle, p_url: shareUrl
-      }).then(function (res) {
-        if (res.error) return;
-        var row = Array.isArray(res.data) ? res.data[0] : res.data;
-        if (row && row.points_awarded > 0) toast('↗ +' + row.points_awarded + ' monedas por compartir', 'success');
-      }).catch(function () {});
-    };
-    if (navigator.share) {
-      navigator.share({ title: shareTitle, url: shareUrl })
-        .then(afterShare)
-        .catch(function () { /* user cancelled — no points */ });
-    } else {
-      // Fallback: copy link, then open WhatsApp share.
-      try {
-        if (navigator.clipboard) navigator.clipboard.writeText(shareUrl);
-      } catch (e) {}
-      window.open('https://wa.me/?text=' + encodeURIComponent(shareTitle + ' ' + shareUrl), '_blank');
-      afterShare();
-    }
+    var menu = buildShareMenu();
+    menu.classList.toggle('open');
   }
 
   function setupBlogGamification() {
@@ -1021,7 +1116,20 @@
         if (unread.length > 0) { bellBadgeEl.textContent = String(unread.length); bellBadgeEl.classList.add('show'); }
         else { bellBadgeEl.classList.remove('show'); }
       }
-      if (autoOpen && !notifAutoShown) { notifAutoShown = true; if (notifPanelEl) notifPanelEl.classList.add('open'); }
+      if (autoOpen && !notifAutoShown && notifPanelEl) {
+        notifAutoShown = true;
+        notifPanelEl.classList.add('open');
+        // Auto-dismiss after 10s or on the next click anywhere.
+        var dismiss = function () {
+          if (notifPanelEl) notifPanelEl.classList.remove('open');
+          clearTimeout(timer);
+          document.removeEventListener('click', onAnyClick, true);
+        };
+        var onAnyClick = function () { dismiss(); };
+        var timer = setTimeout(dismiss, 10000);
+        // Defer so the click/flow that triggered login doesn't instantly close it.
+        setTimeout(function () { document.addEventListener('click', onAnyClick, true); }, 0);
+      }
     }).catch(function () {});
   }
 
