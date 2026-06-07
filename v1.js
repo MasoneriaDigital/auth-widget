@@ -117,7 +117,26 @@
     ".md-auth-toast-error{border-color:#cf6f6f;color:#f0d4d4}",
 
     // The nav link we inject inside the menu (inherits .nav-link styles from Webflow but tinted)
-    "#md-auth-nav-link{cursor:pointer}"
+    "#md-auth-nav-link{cursor:pointer}",
+
+    // Library (bookmarks) section in the profile
+    ".md-auth-library{margin-top:18px}",
+    ".md-auth-library-title{font-family:'Cinzel',serif;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#B8A36A;margin-bottom:8px;display:flex;align-items:center;gap:6px}",
+    ".md-auth-library-count{color:#8a8a92;font-family:Montserrat,sans-serif;font-size:11px;letter-spacing:0;text-transform:none}",
+    ".md-auth-library-list{display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto}",
+    ".md-auth-library-empty{color:#7a7a82;font-size:12px;text-align:center;padding:8px 0}",
+    ".md-auth-library-item{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.03);border:1px solid rgba(184,163,106,.18);border-radius:8px;padding:8px 10px}",
+    ".md-auth-library-item a{flex:1;color:#e7e7ea;font-size:13px;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+    ".md-auth-library-item a:hover{color:#B8A36A}",
+    ".md-auth-library-remove{background:none;border:none;color:#8a8a92;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px}",
+    ".md-auth-library-remove:hover{color:#cf6f6f;background:rgba(207,111,111,.1)}",
+
+    // Floating bookmark button on article pages
+    "#md-bookmark-fab{position:fixed;right:18px;bottom:18px;z-index:1200;display:inline-flex;align-items:center;gap:8px;background:#1f1f21;color:#f2f2f3;border:1px solid rgba(194,61,224,.45);border-radius:999px;padding:10px 16px;font:600 13px Montserrat,sans-serif;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45);transition:background .2s,border-color .2s,transform .15s}",
+    "#md-bookmark-fab:hover{background:rgba(194,61,224,.14);border-color:rgba(194,61,224,.8)}",
+    "#md-bookmark-fab:active{transform:scale(.97)}",
+    "#md-bookmark-fab.saved{border-color:rgba(184,163,106,.8);color:#B8A36A}",
+    "@media (max-width:480px){#md-bookmark-fab{padding:10px 14px;font-size:12px}}"
   ].join('\n');
 
   function injectStyles() {
@@ -326,6 +345,10 @@
         '</div>' +
         '<a id="md-auth-profile-trivia-link" class="md-auth-btn-primary md-auth-btn-block" href="' + escapeHTML(TRIVIA_URL) + '">⚔ Jugar Desafío 33</a>' +
         '<button id="md-auth-invite-btn" type="button" class="md-auth-btn-ghost" style="margin-top:10px">✉ Invita a alguien para competir</button>' +
+        '<div class="md-auth-library">' +
+          '<div class="md-auth-library-title">📚 Mi biblioteca <span id="md-auth-reads-count" class="md-auth-library-count"></span></div>' +
+          '<div id="md-auth-library-list" class="md-auth-library-list"><div class="md-auth-library-empty">Cargando…</div></div>' +
+        '</div>' +
         '<div class="md-auth-unlock-teaser">' +
           '<div class="md-auth-unlock-title">Próximos desbloqueos</div>' +
           '<ul class="md-auth-unlock-list">' +
@@ -784,6 +807,7 @@
       $('#md-auth-profile-coins', modalEl).textContent = '0';
       $('#md-auth-profile-games', modalEl).textContent = '0';
       $('#md-auth-profile-ranking', modalEl).textContent = '#—';
+      loadLibrary();
       return;
     }
     $('#md-auth-profile-avatar', modalEl).textContent = initials(profile.username || userDisplayName());
@@ -792,6 +816,143 @@
     $('#md-auth-profile-coins', modalEl).textContent = String(profile.profane_coins != null ? profile.profane_coins : 0);
     $('#md-auth-profile-games', modalEl).textContent = String(profile.games_played != null ? profile.games_played : 0);
     $('#md-auth-profile-ranking', modalEl).textContent = '#' + (profile.ranking || '—');
+    loadLibrary();
+  }
+
+  // -- blog gamification (read-to-earn + bookmarks) -------------------------
+  var blogArticle = null;          // { slug, title, url } if on an article page
+  var readAwarded = false;         // guard so we only award once per page load
+  var bookmarkFab = null;          // floating bookmark button element
+  var isBookmarked = false;
+  var pageLoadedAt = Date.now();
+
+  function getArticle() {
+    var p = window.location.pathname || '';
+    var m = p.match(/^\/blog\/([^\/?#]+)\/?$/i);
+    if (!m) return null;
+    var slug = decodeURIComponent(m[1]);
+    var h1 = document.querySelector('h1');
+    var title = (h1 && h1.textContent.trim()) || (document.title || slug);
+    return { slug: slug, title: title.slice(0, 280), url: (window.location.href || '').split(/[?#]/)[0] };
+  }
+
+  function awardReadIfBottom() {
+    if (readAwarded || !supa || !session || !session.user || !blogArticle) return;
+    var doc = document.documentElement;
+    var full = Math.max(doc.scrollHeight, document.body.scrollHeight);
+    var scrolled = window.scrollY + window.innerHeight;
+    var pageIsTall = full > window.innerHeight + 50;
+    // Must reach near the bottom (within 250px) on tall pages.
+    if (pageIsTall && scrolled < full - 250) return;
+    // Dwell guard: at least 12s on the page (avoid instant-scroll farming).
+    if (Date.now() - pageLoadedAt < 12000) return;
+    readAwarded = true;
+    supa.rpc('award_article_read', {
+      p_slug: blogArticle.slug, p_title: blogArticle.title, p_url: blogArticle.url
+    }).then(function (res) {
+      if (res.error) { readAwarded = false; return; }
+      var row = Array.isArray(res.data) ? res.data[0] : res.data;
+      if (row && row.points_awarded > 0) {
+        toast('📚 +' + row.points_awarded + ' monedas por leer este artículo', 'success');
+      }
+    }).catch(function () { readAwarded = false; });
+  }
+
+  function setFabSaved(saved) {
+    isBookmarked = saved;
+    if (!bookmarkFab) return;
+    bookmarkFab.textContent = saved ? '★ En tu biblioteca' : '☆ Guardar en mi biblioteca';
+    if (saved) bookmarkFab.classList.add('saved'); else bookmarkFab.classList.remove('saved');
+  }
+
+  function refreshBookmarkState() {
+    if (!bookmarkFab || !blogArticle) return;
+    if (!session || !session.user) { setFabSaved(false); return; }
+    supa.from('bookmarks').select('slug')
+      .eq('user_id', session.user.id).eq('slug', blogArticle.slug).maybeSingle()
+      .then(function (res) { setFabSaved(!!(res && res.data)); });
+  }
+
+  function toggleBookmark() {
+    if (!session || !session.user) {
+      openModal('login');
+      toast('Inicia sesión para guardar en tu biblioteca', 'info');
+      return;
+    }
+    if (!blogArticle) return;
+    if (isBookmarked) {
+      supa.from('bookmarks').delete()
+        .eq('user_id', session.user.id).eq('slug', blogArticle.slug)
+        .then(function (res) { if (!res.error) { setFabSaved(false); toast('Quitado de tu biblioteca', 'info'); } });
+    } else {
+      supa.from('bookmarks').insert({
+        user_id: session.user.id, slug: blogArticle.slug, title: blogArticle.title, url: blogArticle.url
+      }).then(function (res) {
+        if (!res.error) { setFabSaved(true); toast('★ Guardado en tu biblioteca', 'success'); }
+        else if (/duplicate|unique/i.test(res.error.message || '')) { setFabSaved(true); }
+      });
+    }
+  }
+
+  function setupBlogGamification() {
+    blogArticle = getArticle();
+    if (!blogArticle) return;
+    // Floating bookmark button
+    if (!bookmarkFab) {
+      bookmarkFab = document.createElement('button');
+      bookmarkFab.id = 'md-bookmark-fab';
+      bookmarkFab.type = 'button';
+      bookmarkFab.textContent = '☆ Guardar en mi biblioteca';
+      bookmarkFab.addEventListener('click', toggleBookmark);
+      document.body.appendChild(bookmarkFab);
+    }
+    refreshBookmarkState();
+    // Read tracking
+    window.addEventListener('scroll', awardReadIfBottom, { passive: true });
+    setTimeout(awardReadIfBottom, 13000);
+  }
+
+  function loadLibrary() {
+    var listEl = $('#md-auth-library-list', modalEl);
+    var countEl = $('#md-auth-reads-count', modalEl);
+    if (!listEl || !session || !session.user) return;
+    supa.from('article_reads').select('slug', { count: 'exact', head: true })
+      .eq('user_id', session.user.id)
+      .then(function (r) { if (countEl) countEl.textContent = '· ' + (r.count || 0) + ' leídos'; });
+    supa.from('bookmarks').select('slug,title,url')
+      .eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(50)
+      .then(function (res) {
+        if (res.error) { listEl.innerHTML = '<div class="md-auth-library-empty">No se pudo cargar tu biblioteca.</div>'; return; }
+        var rows = res.data || [];
+        if (rows.length === 0) {
+          listEl.innerHTML = '<div class="md-auth-library-empty">Aún no has guardado artículos. Pulsa “Guardar en mi biblioteca” en cualquier artículo del blog.</div>';
+          return;
+        }
+        listEl.innerHTML = '';
+        rows.forEach(function (b) {
+          var item = document.createElement('div');
+          item.className = 'md-auth-library-item';
+          var a = document.createElement('a');
+          a.href = b.url || ('/blog/' + b.slug);
+          a.textContent = b.title || b.slug;
+          a.title = b.title || b.slug;
+          var rm = document.createElement('button');
+          rm.className = 'md-auth-library-remove';
+          rm.type = 'button';
+          rm.innerHTML = '&times;';
+          rm.title = 'Quitar de la biblioteca';
+          rm.addEventListener('click', function () {
+            supa.from('bookmarks').delete()
+              .eq('user_id', session.user.id).eq('slug', b.slug)
+              .then(function (r) {
+                if (!r.error) { item.remove(); if (blogArticle && blogArticle.slug === b.slug) setFabSaved(false); }
+              });
+          });
+          item.appendChild(a);
+          item.appendChild(rm);
+          listEl.appendChild(item);
+        });
+      });
   }
 
   // -- init -----------------------------------------------------------------
@@ -814,6 +975,9 @@
       });
 
       if (!insertHeaderUI()) return;
+
+      // Blog gamification: bookmark button + read-to-earn on /blog/<slug> pages.
+      setupBlogGamification();
 
       supa.auth.onAuthStateChange(function (event, newSession) {
         var wasLoggedOut = !session;
@@ -843,6 +1007,7 @@
 
         refreshProfile().then(function () {
           renderTrigger();
+          refreshBookmarkState();
           if (event === 'SIGNED_IN' && wasLoggedOut && modalEl.classList.contains('open') &&
               !modalEl.querySelector('.md-auth-view-set-password.active')) {
             // Just signed in via the modal — close it.
@@ -857,6 +1022,7 @@
         return refreshProfile();
       }).then(function () {
         renderTrigger();
+        refreshBookmarkState();
       });
     }).catch(function (err) {
       console.error('[md-auth]', err);
