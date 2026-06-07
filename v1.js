@@ -131,12 +131,29 @@
     ".md-auth-library-remove{background:none;border:none;color:#8a8a92;cursor:pointer;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px}",
     ".md-auth-library-remove:hover{color:#cf6f6f;background:rgba(207,111,111,.1)}",
 
-    // Floating bookmark button on article pages
-    "#md-bookmark-fab{position:fixed;right:18px;bottom:18px;z-index:1200;display:inline-flex;align-items:center;gap:8px;background:#1f1f21;color:#f2f2f3;border:1px solid rgba(194,61,224,.45);border-radius:999px;padding:10px 16px;font:600 13px Montserrat,sans-serif;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45);transition:background .2s,border-color .2s,transform .15s}",
-    "#md-bookmark-fab:hover{background:rgba(194,61,224,.14);border-color:rgba(194,61,224,.8)}",
-    "#md-bookmark-fab:active{transform:scale(.97)}",
+    // Floating article actions (bookmark + share) on article pages
+    "#md-article-actions{position:fixed;right:18px;bottom:18px;z-index:1200;display:flex;flex-direction:column;gap:8px;align-items:flex-end}",
+    ".md-fab{display:inline-flex;align-items:center;gap:8px;background:#1f1f21;color:#f2f2f3;border:1px solid rgba(194,61,224,.45);border-radius:999px;padding:10px 16px;font:600 13px Montserrat,sans-serif;cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45);transition:background .2s,border-color .2s,transform .15s}",
+    ".md-fab:hover{background:rgba(194,61,224,.14);border-color:rgba(194,61,224,.8)}",
+    ".md-fab:active{transform:scale(.97)}",
     "#md-bookmark-fab.saved{border-color:rgba(184,163,106,.8);color:#B8A36A}",
-    "@media (max-width:480px){#md-bookmark-fab{padding:10px 14px;font-size:12px}}"
+    "@media (max-width:480px){.md-fab{padding:10px 14px;font-size:12px}}",
+
+    // Notification bell + panel
+    "#md-bell{position:fixed;left:18px;bottom:18px;z-index:1200;width:48px;height:48px;border-radius:50%;background:#1f1f21;color:#f2f2f3;border:1px solid rgba(194,61,224,.45);cursor:pointer;box-shadow:0 8px 24px rgba(0,0,0,.45);display:inline-flex;align-items:center;justify-content:center;font-size:20px;transition:background .2s,border-color .2s,transform .15s}",
+    "#md-bell:hover{background:rgba(194,61,224,.14);border-color:rgba(194,61,224,.8)}",
+    "#md-bell:active{transform:scale(.95)}",
+    "#md-bell-badge{position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 4px;border-radius:999px;background:#c23de0;color:#fff;font:700 11px Montserrat,sans-serif;display:none;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.4)}",
+    "#md-bell-badge.show{display:inline-flex}",
+    "#md-notif-panel{position:fixed;left:18px;bottom:74px;z-index:1201;width:min(320px,calc(100vw - 36px));background:#1f1f21;border:1px solid rgba(194,61,224,.4);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.55);padding:16px;display:none;font-family:Montserrat,sans-serif;color:#f2f2f3;animation:md-auth-scale .2s ease-out}",
+    "#md-notif-panel.open{display:block}",
+    ".md-notif-title{font-family:'Cinzel',serif;font-size:13px;letter-spacing:.06em;color:#B8A36A;text-transform:uppercase;margin-bottom:10px}",
+    ".md-notif-item{font-size:13px;color:#d7d7dc;line-height:1.5;padding:8px 0;border-top:1px solid rgba(255,255,255,.07)}",
+    ".md-notif-item:first-of-type{border-top:none}",
+    ".md-notif-item a{color:#B8A36A;text-decoration:none}",
+    ".md-notif-cta{display:block;text-align:center;margin-top:12px;padding:10px;border-radius:8px;background:rgba(194,61,224,.22);border:1px solid rgba(194,61,224,.55);color:#fff;font-weight:600;font-size:12px;letter-spacing:.06em;text-transform:uppercase;text-decoration:none}",
+    ".md-notif-cta:hover{background:rgba(194,61,224,.32)}",
+    ".md-notif-close{position:absolute;top:8px;right:10px;background:none;border:none;color:#a7a7ad;font-size:18px;cursor:pointer}"
   ].join('\n');
 
   function injectStyles() {
@@ -350,11 +367,12 @@
           '<div id="md-auth-library-list" class="md-auth-library-list"><div class="md-auth-library-empty">Cargando…</div></div>' +
         '</div>' +
         '<div class="md-auth-unlock-teaser">' +
-          '<div class="md-auth-unlock-title">Próximos desbloqueos</div>' +
+          '<div class="md-auth-unlock-title">Cómo ganar monedas</div>' +
           '<ul class="md-auth-unlock-list">' +
-            '<li>🔓 100 monedas → Comentar en el blog</li>' +
-            '<li>🔓 Top 10 → Insignia de Maestro</li>' +
-            '<li>🔓 5 partidas → Categorías ocultas del Desafío</li>' +
+            '<li>📚 Lee un artículo hasta el final → +20</li>' +
+            '<li>↗ Comparte un artículo → +10</li>' +
+            '<li>⚔ Juega al Desafío 33 → gana medallas</li>' +
+            '<li>✉ Invita a un amigo a competir</li>' +
           '</ul>' +
         '</div>' +
         '<button id="md-auth-logout-btn" type="button" class="md-auth-btn-ghost">Cerrar sesión</button>' +
@@ -823,8 +841,10 @@
   var blogArticle = null;          // { slug, title, url } if on an article page
   var readAwarded = false;         // guard so we only award once per page load
   var bookmarkFab = null;          // floating bookmark button element
+  var shareFab = null;             // floating share button element
   var isBookmarked = false;
   var pageLoadedAt = Date.now();
+  var bellEl = null, bellBadgeEl = null, notifPanelEl = null, notifAutoShown = false;
 
   function getArticle() {
     var p = window.location.pathname || '';
@@ -894,22 +914,141 @@
     }
   }
 
+  function handleShare() {
+    if (!blogArticle) return;
+    var shareUrl = blogArticle.url;
+    var shareTitle = blogArticle.title;
+    var afterShare = function () {
+      if (!session || !session.user) return; // points only for logged-in users
+      supa.rpc('award_article_share', {
+        p_slug: blogArticle.slug, p_title: shareTitle, p_url: shareUrl
+      }).then(function (res) {
+        if (res.error) return;
+        var row = Array.isArray(res.data) ? res.data[0] : res.data;
+        if (row && row.points_awarded > 0) toast('↗ +' + row.points_awarded + ' monedas por compartir', 'success');
+      }).catch(function () {});
+    };
+    if (navigator.share) {
+      navigator.share({ title: shareTitle, url: shareUrl })
+        .then(afterShare)
+        .catch(function () { /* user cancelled — no points */ });
+    } else {
+      // Fallback: copy link, then open WhatsApp share.
+      try {
+        if (navigator.clipboard) navigator.clipboard.writeText(shareUrl);
+      } catch (e) {}
+      window.open('https://wa.me/?text=' + encodeURIComponent(shareTitle + ' ' + shareUrl), '_blank');
+      afterShare();
+    }
+  }
+
   function setupBlogGamification() {
     blogArticle = getArticle();
     if (!blogArticle) return;
-    // Floating bookmark button
+    // Floating actions group: bookmark + share
     if (!bookmarkFab) {
+      var group = document.createElement('div');
+      group.id = 'md-article-actions';
+
+      shareFab = document.createElement('button');
+      shareFab.id = 'md-share-fab';
+      shareFab.className = 'md-fab';
+      shareFab.type = 'button';
+      shareFab.textContent = '↗ Compartir';
+      shareFab.addEventListener('click', handleShare);
+
       bookmarkFab = document.createElement('button');
       bookmarkFab.id = 'md-bookmark-fab';
+      bookmarkFab.className = 'md-fab';
       bookmarkFab.type = 'button';
       bookmarkFab.textContent = '☆ Guardar en mi biblioteca';
       bookmarkFab.addEventListener('click', toggleBookmark);
-      document.body.appendChild(bookmarkFab);
+
+      group.appendChild(shareFab);
+      group.appendChild(bookmarkFab);
+      document.body.appendChild(group);
     }
     refreshBookmarkState();
     // Read tracking
     window.addEventListener('scroll', awardReadIfBottom, { passive: true });
     setTimeout(awardReadIfBottom, 13000);
+  }
+
+  // -- notifications bell ---------------------------------------------------
+  function renderBell() {
+    if (bellEl) return;
+    bellEl = document.createElement('button');
+    bellEl.id = 'md-bell';
+    bellEl.type = 'button';
+    bellEl.setAttribute('aria-label', 'Notificaciones');
+    bellEl.innerHTML = '🔔<span id="md-bell-badge"></span>';
+    bellEl.addEventListener('click', function () { toggleNotifPanel(); });
+    document.body.appendChild(bellEl);
+    bellBadgeEl = bellEl.querySelector('#md-bell-badge');
+
+    notifPanelEl = document.createElement('div');
+    notifPanelEl.id = 'md-notif-panel';
+    document.body.appendChild(notifPanelEl);
+
+    document.addEventListener('click', function (e) {
+      if (notifPanelEl && notifPanelEl.classList.contains('open') &&
+          !notifPanelEl.contains(e.target) && e.target !== bellEl && !bellEl.contains(e.target)) {
+        notifPanelEl.classList.remove('open');
+      }
+    });
+  }
+
+  function setBellVisible(visible) {
+    if (!bellEl) return;
+    bellEl.style.display = visible ? 'inline-flex' : 'none';
+  }
+
+  // Compute notifications: bookmarked-but-unread articles + a Desafío 33 nudge.
+  function refreshNotifications(autoOpen) {
+    if (!session || !session.user) { setBellVisible(false); return; }
+    renderBell();
+    setBellVisible(true);
+    Promise.all([
+      supa.from('bookmarks').select('slug,title,url').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(50),
+      supa.from('article_reads').select('slug').eq('user_id', session.user.id)
+    ]).then(function (out) {
+      var bms = (out[0] && out[0].data) || [];
+      var readSet = {};
+      ((out[1] && out[1].data) || []).forEach(function (r) { readSet[r.slug] = true; });
+      var unread = bms.filter(function (b) { return !readSet[b.slug]; });
+      buildNotifPanel(unread);
+      if (bellBadgeEl) {
+        if (unread.length > 0) { bellBadgeEl.textContent = String(unread.length); bellBadgeEl.classList.add('show'); }
+        else { bellBadgeEl.classList.remove('show'); }
+      }
+      if (autoOpen && !notifAutoShown) { notifAutoShown = true; if (notifPanelEl) notifPanelEl.classList.add('open'); }
+    }).catch(function () {});
+  }
+
+  function buildNotifPanel(unread) {
+    if (!notifPanelEl) return;
+    var html = '<button class="md-notif-close" type="button" aria-label="Cerrar">&times;</button>';
+    html += '<div class="md-notif-title">🔔 Tus recordatorios</div>';
+    if (unread.length > 0) {
+      html += '<div class="md-notif-item">Tienes <strong>' + unread.length + '</strong> artículo' + (unread.length > 1 ? 's' : '') + ' en tu biblioteca por leer:';
+      unread.slice(0, 3).forEach(function (b) {
+        html += '<br/>· <a href="' + (b.url || ('/blog/' + b.slug)) + '">' + escapeHTML(b.title || b.slug) + '</a>';
+      });
+      html += '</div>';
+    } else {
+      html += '<div class="md-notif-item">No tienes artículos pendientes en tu biblioteca. Guarda los que quieras leer luego con “Guardar en mi biblioteca”.</div>';
+    }
+    html += '<div class="md-notif-item">¿Listo para subir en el ranking? Pon a prueba tu conocimiento masónico.</div>';
+    html += '<a class="md-notif-cta" href="' + escapeHTML(TRIVIA_URL) + '">⚔ Jugar al Desafío 33</a>';
+    notifPanelEl.innerHTML = html;
+    var closeBtn = notifPanelEl.querySelector('.md-notif-close');
+    if (closeBtn) closeBtn.addEventListener('click', function () { notifPanelEl.classList.remove('open'); });
+  }
+
+  function toggleNotifPanel() {
+    if (!notifPanelEl) return;
+    if (notifPanelEl.classList.contains('open')) notifPanelEl.classList.remove('open');
+    else { refreshNotifications(false); notifPanelEl.classList.add('open'); }
   }
 
   function loadLibrary() {
@@ -1008,6 +1147,8 @@
         refreshProfile().then(function () {
           renderTrigger();
           refreshBookmarkState();
+          // Auto-open the notifications panel on a fresh login.
+          refreshNotifications(event === 'SIGNED_IN' && wasLoggedOut);
           if (event === 'SIGNED_IN' && wasLoggedOut && modalEl.classList.contains('open') &&
               !modalEl.querySelector('.md-auth-view-set-password.active')) {
             // Just signed in via the modal — close it.
@@ -1023,6 +1164,7 @@
       }).then(function () {
         renderTrigger();
         refreshBookmarkState();
+        refreshNotifications(false);
       });
     }).catch(function (err) {
       console.error('[md-auth]', err);
