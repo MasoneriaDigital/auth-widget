@@ -1206,7 +1206,7 @@
   // (white-on-transparent shows poorly on light tab bars). Hosted on Webflow CDN.
   function setSiteFavicon() {
     try {
-      var url = 'https://cdn.prod.website-files.com/5e3998ddcf71115390c03c90/6a26685306dd7d1a466cc06d_favicon-md-dark.png';
+      var url = 'https://cdn.prod.website-files.com/5e3998ddcf71115390c03c90/6a266c2dbc8de39c3c185967_favicon-md-dark-sq.png';
       var links = document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
       for (var i = 0; i < links.length; i++) {
         if (links[i].parentNode) links[i].parentNode.removeChild(links[i]);
