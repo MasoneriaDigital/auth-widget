@@ -1202,27 +1202,9 @@
       });
   }
 
-  // Set the blog favicon to the Masonería Digital logo on a dark background
-  // (white-on-transparent shows poorly on light tab bars). Hosted on Webflow CDN.
-  function setSiteFavicon() {
-    try {
-      var url = 'https://cdn.prod.website-files.com/5e3998ddcf71115390c03c90/6a266c2dbc8de39c3c185967_favicon-md-dark-sq.png';
-      var links = document.querySelectorAll('link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]');
-      for (var i = 0; i < links.length; i++) {
-        if (links[i].parentNode) links[i].parentNode.removeChild(links[i]);
-      }
-      ['icon', 'apple-touch-icon'].forEach(function (rel) {
-        var l = document.createElement('link');
-        l.rel = rel; l.type = 'image/png'; l.href = url;
-        document.head.appendChild(l);
-      });
-    } catch (e) { /* ignore */ }
-  }
-
   // -- init -----------------------------------------------------------------
   function init() {
     injectStyles();
-    setSiteFavicon();
     // Capturamos el tipo de llegada AHORA: detectSessionInUrl limpiará el hash enseguida.
     var arrivalType = detectArrivalType();
     var arrivalHandled = false;
