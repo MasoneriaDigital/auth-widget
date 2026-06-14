@@ -1098,6 +1098,44 @@
     bellEl.style.display = visible ? 'inline-flex' : 'none';
   }
 
+  // -- auto-open gating -----------------------------------------------------
+  // The panel must auto-open ONLY the first time a visitor lands on the site
+  // (persisted via the shared .masoneria.digital cookie) or on each fresh login
+  // — never on ordinary page navigation. Webflow does a full reload per page, so
+  // Supabase re-emits SIGNED_IN/INITIAL_SESSION on every load; gating on the event
+  // alone reopens the panel everywhere. Instead we compare a per-login signature.
+  var MD_NOTIF_GREETED_KEY = 'md-notif-greeted';
+
+  function mdJwtClaim(token, name) {
+    try {
+      var p = (token || '').split('.')[1];
+      if (!p) return null;
+      p = p.replace(/-/g, '+').replace(/_/g, '/');
+      while (p.length % 4) p += '=';
+      var obj = JSON.parse(mdB64decode(p));
+      return obj ? obj[name] : null;
+    } catch (e) { return null; }
+  }
+
+  // Stable across token refreshes within one login, but changes on every new
+  // login (and per user). Falls back to a token tail if session_id is missing.
+  function mdNotifSig() {
+    if (!session || !session.user) return '';
+    var sid = mdJwtClaim(session.access_token, 'session_id');
+    var tail = sid || (session.refresh_token || session.access_token || '').slice(-16);
+    return session.user.id + ':' + tail;
+  }
+
+  function shouldAutoOpenNotif(event) {
+    if (event !== 'SIGNED_IN' && event !== 'INITIAL_SESSION') return false;
+    if (!session || !session.user) return false;
+    var sig = mdNotifSig();
+    if (!sig) return false;
+    // First session we ever see (no stored value) → first visit; a different
+    // value → a new login. Same value → just navigating → stay closed.
+    return sig !== MD_COOKIE_STORAGE.getItem(MD_NOTIF_GREETED_KEY);
+  }
+
   // Compute notifications: bookmarked-but-unread articles + a Desafío 33 nudge.
   function refreshNotifications(autoOpen) {
     if (!session || !session.user) { setBellVisible(false); return; }
@@ -1118,6 +1156,8 @@
       }
       if (autoOpen && !notifAutoShown && notifPanelEl) {
         notifAutoShown = true;
+        // Remember this login so we don't reopen on every page navigation.
+        MD_COOKIE_STORAGE.setItem(MD_NOTIF_GREETED_KEY, mdNotifSig());
         notifPanelEl.classList.add('open');
         // Auto-dismiss after 10s or on the next click anywhere.
         var dismiss = function () {
@@ -1255,8 +1295,9 @@
         refreshProfile().then(function () {
           renderTrigger();
           refreshBookmarkState();
-          // Auto-open the notifications panel on a fresh login.
-          refreshNotifications(event === 'SIGNED_IN' && wasLoggedOut);
+          // Auto-open only on first visit (cookie) or a fresh login — never on
+          // plain navigation. See shouldAutoOpenNotif().
+          refreshNotifications(shouldAutoOpenNotif(event));
           if (event === 'SIGNED_IN' && wasLoggedOut && modalEl.classList.contains('open') &&
               !modalEl.querySelector('.md-auth-view-set-password.active')) {
             // Just signed in via the modal — close it.
