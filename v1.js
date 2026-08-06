@@ -39,9 +39,12 @@
     "@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Montserrat:wght@400;500;600&display=swap');",
 
     // Trigger button (sits next to the hamburger)
-    "#md-auth-trigger{position:absolute;display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid rgba(194,61,224,.35);color:#f2f2f3;border-radius:999px;padding:8px 12px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:500;cursor:pointer;z-index:1200;transition:background .25s,border-color .25s,transform .15s;line-height:1}",
+    "#md-auth-trigger{position:absolute;display:inline-flex;align-items:center;gap:8px;background:transparent;border:1px solid rgba(194,61,224,.35);color:#f2f2f3;border-radius:999px;padding:8px 12px;font-family:Montserrat,sans-serif;font-size:13px;font-weight:500;cursor:pointer;z-index:1200;transition:background .25s,border-color .25s,transform .18s,opacity .18s;line-height:1}",
     "#md-auth-trigger:hover{background:rgba(194,61,224,.12);border-color:rgba(194,61,224,.7)}",
     "#md-auth-trigger:active{transform:scale(.97)}",
+    // While the Webflow menu is expanded the panel covers the header: the chip
+    // steps aside (its job is taken over by #md-auth-nav-card inside the panel).
+    "#md-auth-trigger.md-menu-open{opacity:0;transform:scale(.94);pointer-events:none}",
     "#md-auth-trigger .md-auth-icon{width:18px;height:18px;display:block;flex-shrink:0}",
     "#md-auth-trigger.logged-in{padding:5px 12px 5px 5px}",
     "#md-auth-trigger .md-auth-avatar{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#c23de0 0%,#B8A36A 100%);color:#fff;font-weight:600;font-size:12px;letter-spacing:.5px;font-family:Montserrat,sans-serif}",
@@ -101,6 +104,20 @@
     ".md-auth-avatar-lg{width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#c23de0 0%,#B8A36A 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:20px;font-family:Montserrat,sans-serif;flex-shrink:0;letter-spacing:.5px;box-shadow:0 4px 12px rgba(194,61,224,.3)}",
     ".md-auth-profile-name{font-family:'Cinzel',serif;font-weight:600;font-size:17px;color:#f2f2f3;line-height:1.2}",
     ".md-auth-profile-email{font-size:12px;color:#8a8a92;margin-top:3px;word-break:break-all}",
+    // Inline edit of the display name (pencil → input + save/cancel)
+    ".md-auth-name-row{display:flex;align-items:center;gap:8px}",
+    ".md-auth-name-edit{background:none;border:none;color:#8a8a92;cursor:pointer;font-size:14px;line-height:1;padding:2px 5px;border-radius:6px;transition:color .2s,background .2s}",
+    ".md-auth-name-edit:hover{color:#B8A36A;background:rgba(184,163,106,.12)}",
+    ".md-auth-name-editor{margin-top:8px;display:flex;flex-direction:column;gap:8px}",
+    ".md-auth-name-editor input{box-sizing:border-box;width:100%;padding:8px 10px;background:rgba(31,31,33,.7);border:1px solid #4a4a52;border-radius:8px;color:#f2f2f3;font:inherit;font-size:14px;outline:none}",
+    ".md-auth-name-editor input:focus{border-color:#B8A36A;box-shadow:0 0 0 3px rgba(184,163,106,.18)}",
+    ".md-auth-name-editor-actions{display:flex;gap:8px}",
+    ".md-auth-name-save,.md-auth-name-cancel{flex:1;padding:8px;border-radius:8px;font:600 12px Montserrat,sans-serif;letter-spacing:.04em;text-transform:uppercase;cursor:pointer}",
+    ".md-auth-name-save{background:rgba(194,61,224,.22);border:1px solid rgba(194,61,224,.55);color:#fff}",
+    ".md-auth-name-save:hover{background:rgba(194,61,224,.32)}",
+    ".md-auth-name-save[disabled]{opacity:.55;cursor:not-allowed}",
+    ".md-auth-name-cancel{background:transparent;border:1px solid rgba(255,255,255,.12);color:#a7a7ad}",
+    ".md-auth-name-cancel:hover{color:#fff;border-color:rgba(255,255,255,.25)}",
     ".md-auth-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}",
     ".md-auth-stat{background:rgba(255,255,255,.03);border:1px solid rgba(184,163,106,.18);border-radius:10px;padding:11px 6px;text-align:center}",
     ".md-auth-stat-value{font-family:'Cinzel',serif;font-weight:600;font-size:18px;color:#B8A36A;line-height:1}",
@@ -116,8 +133,40 @@
     ".md-auth-toast-success{border-color:#7fcf8f;color:#cfe8d4}",
     ".md-auth-toast-error{border-color:#cf6f6f;color:#f0d4d4}",
 
-    // The nav link we inject inside the menu (inherits .nav-link styles from Webflow but tinted)
-    "#md-auth-nav-link{cursor:pointer}",
+    // Account card injected at the top of the expanded menu panel. Horizontal
+    // padding is copied at runtime from the sibling .nav-link so it lines up
+    // with the Webflow menu items whatever the theme does.
+    "#md-auth-nav-card{display:block;box-sizing:border-box;width:100%;font-family:Montserrat,sans-serif;color:#f2f2f3}",
+    "#md-auth-nav-card .md-nav-card-inner{padding-top:14px;padding-bottom:16px;border-bottom:1px solid rgba(184,163,106,.22)}",
+    "#md-auth-nav-card button{font-family:inherit}",
+
+    // logged in: avatar + name + stats
+    ".md-nav-card-user{display:flex;align-items:center;gap:12px;width:100%;background:transparent;border:none;padding:0;color:inherit;cursor:pointer;text-align:left}",
+    ".md-nav-card-user:hover .md-nav-card-name{color:#B8A36A}",
+    ".md-nav-card-user:hover .md-nav-card-chev{color:#B8A36A}",
+    ".md-nav-card-avatar{flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#c23de0 0%,#B8A36A 100%);color:#fff;font-weight:600;font-size:14px;letter-spacing:.5px}",
+    ".md-nav-card-avatar svg{width:20px;height:20px}",
+    ".md-nav-card-id{min-width:0;flex:1}",
+    ".md-nav-card-name{display:block;font-size:15px;font-weight:600;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:color .2s}",
+    ".md-nav-card-meta{display:block;font-size:10px;color:#a7a7ad;letter-spacing:.08em;text-transform:uppercase;margin-top:4px}",
+    ".md-nav-card-chev{flex-shrink:0;color:#8a8a92;font-size:22px;line-height:1;transition:color .2s}",
+    ".md-nav-card-stats{display:flex;gap:8px;margin-top:14px}",
+    ".md-nav-stat{flex:1;background:rgba(255,255,255,.04);border:1px solid rgba(184,163,106,.18);border-radius:8px;padding:8px 4px;text-align:center}",
+    ".md-nav-stat b{display:block;font-size:15px;font-weight:700;color:#B8A36A;line-height:1.1}",
+    ".md-nav-stat i{display:block;font-style:normal;font-size:9px;color:#a7a7ad;letter-spacing:.04em;text-transform:uppercase;margin-top:4px}",
+
+    // logged out: registration CTA
+    ".md-nav-card-title{font-family:'Cinzel',serif;font-size:17px;font-weight:600;line-height:1.35;margin:0}",
+    ".md-nav-card-sub{font-size:12px;color:#a7a7ad;line-height:1.5;margin:7px 0 0}",
+    ".md-nav-card-perks{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}",
+    ".md-nav-card-perk{font-size:9px;letter-spacing:.06em;text-transform:uppercase;color:#d9c99a;background:rgba(184,163,106,.12);border:1px solid rgba(184,163,106,.3);border-radius:999px;padding:5px 9px;line-height:1}",
+    ".md-nav-card-cta{display:block;width:100%;margin-top:13px;padding:12px 14px;background:rgba(194,61,224,.24);border:1px solid rgba(194,61,224,.6);border-radius:8px;color:#fff;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:background .2s,transform .15s}",
+    ".md-nav-card-cta:hover{background:rgba(194,61,224,.38)}",
+    ".md-nav-card-cta:active{transform:scale(.985)}",
+    ".md-nav-card-alt{display:block;width:100%;margin-top:9px;padding:4px;background:none;border:none;color:#a7a7ad;font-size:12px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}",
+    ".md-nav-card-alt:hover{color:#f2f2f3}",
+    // short viewports: the card must never push the menu items out of reach
+    "@media (max-height:720px){#md-auth-nav-card .md-nav-card-inner{padding-top:10px;padding-bottom:12px}.md-nav-card-perks{display:none}.md-nav-card-stats{margin-top:10px}.md-nav-card-cta{margin-top:11px}}",
 
     // Library (bookmarks) section in the profile
     ".md-auth-library{margin-top:18px}",
@@ -292,7 +341,7 @@
   var session = null;
   var profile = null;
   var triggerEl = null;
-  var navLinkEl = null;
+  var navCardEl = null;
   var modalEl = null;
   var hamburgerEl = null;
 
@@ -367,9 +416,19 @@
       '<div class="md-auth-view md-auth-view-profile">' +
         '<div class="md-auth-profile-header">' +
           '<div class="md-auth-avatar-lg" id="md-auth-profile-avatar">?</div>' +
-          '<div>' +
-            '<div class="md-auth-profile-name" id="md-auth-profile-username">—</div>' +
+          '<div style="flex:1;min-width:0">' +
+            '<div class="md-auth-name-row">' +
+              '<div class="md-auth-profile-name" id="md-auth-profile-username">—</div>' +
+              '<button type="button" class="md-auth-name-edit" id="md-auth-name-edit" aria-label="Editar nombre" title="Editar nombre">✎</button>' +
+            '</div>' +
             '<div class="md-auth-profile-email" id="md-auth-profile-email">—</div>' +
+            '<div class="md-auth-name-editor" id="md-auth-name-editor" style="display:none">' +
+              '<input type="text" id="md-auth-name-input" maxlength="40" autocomplete="username" placeholder="Tu nombre de usuario"/>' +
+              '<div class="md-auth-name-editor-actions">' +
+                '<button type="button" class="md-auth-name-cancel" id="md-auth-name-cancel">Cancelar</button>' +
+                '<button type="button" class="md-auth-name-save" id="md-auth-name-save">Guardar</button>' +
+              '</div>' +
+            '</div>' +
           '</div>' +
         '</div>' +
         '<div class="md-auth-stats">' +
@@ -463,6 +522,114 @@
     });
   }
 
+  // -- menu open/close ------------------------------------------------------
+  // Webflow flags the expanded state with .w--open on the hamburger. While the
+  // menu is open the panel is painted over the navbar, so the chip would show
+  // through it half-dimmed: we fade it out and let the in-panel card take over.
+  function menuIsOpen() {
+    return !!document.querySelector('.w-nav-button.w--open');
+  }
+
+  function syncMenuState() {
+    var open = menuIsOpen();
+    if (triggerEl) triggerEl.classList.toggle('md-menu-open', open);
+    // Stats can have changed since the last open (a game, a read article).
+    if (open) renderNavCard();
+  }
+
+  function watchMenuState() {
+    syncMenuState();
+    if ('MutationObserver' in window && hamburgerEl) {
+      new MutationObserver(syncMenuState)
+        .observe(hamburgerEl, { attributes: true, attributeFilter: ['class'] });
+    }
+    // Belt and braces: Webflow also closes the menu on link clicks and Escape.
+    document.addEventListener('click', function () { setTimeout(syncMenuState, 60); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') setTimeout(syncMenuState, 60);
+    });
+  }
+
+  // Close the Webflow menu (if expanded), then run cb once it has slid away.
+  function closeMenuThen(cb) {
+    var btn = document.querySelector('.w-nav-button.w--open');
+    if (btn) btn.click();
+    setTimeout(cb, btn ? 220 : 0);
+  }
+
+  // -- account card inside the menu -----------------------------------------
+  function insertNavCard() {
+    var navOverlay = document.querySelector('.nav-color-overlay') ||
+                     document.querySelector('.nav-menu.w-nav-menu');
+    if (!navOverlay) return;
+
+    navCardEl = document.createElement('div');
+    navCardEl.id = 'md-auth-nav-card';
+    navCardEl.innerHTML = '<div class="md-nav-card-inner"></div>';
+
+    var firstLink = navOverlay.querySelector('.nav-link');
+    if (firstLink && firstLink.parentNode) {
+      firstLink.parentNode.insertBefore(navCardEl, firstLink);
+      // Align the card with the menu items instead of guessing paddings.
+      var ls = window.getComputedStyle(firstLink);
+      navCardEl.style.paddingLeft = ls.paddingLeft;
+      navCardEl.style.paddingRight = ls.paddingRight;
+    } else {
+      navOverlay.insertBefore(navCardEl, navOverlay.firstChild);
+      navCardEl.style.paddingLeft = '24px';
+      navCardEl.style.paddingRight = '24px';
+    }
+
+    renderNavCard();
+  }
+
+  function renderNavCard() {
+    if (!navCardEl) return;
+    var inner = navCardEl.querySelector('.md-nav-card-inner');
+    if (!inner) return;
+
+    if (session && session.user) {
+      var name = userDisplayName();
+      var coins = (profile && profile.profane_coins != null) ? profile.profane_coins : 0;
+      var games = (profile && profile.games_played != null) ? profile.games_played : 0;
+      var rank = (profile && profile.ranking) ? '#' + profile.ranking : '#—';
+      inner.innerHTML =
+        '<button type="button" class="md-nav-card-user">' +
+          '<span class="md-nav-card-avatar">' + escapeHTML(initials(name)) + '</span>' +
+          '<span class="md-nav-card-id">' +
+            '<span class="md-nav-card-name">' + escapeHTML(name) + '</span>' +
+            '<span class="md-nav-card-meta">Mi perfil</span>' +
+          '</span>' +
+          '<span class="md-nav-card-chev" aria-hidden="true">&rsaquo;</span>' +
+        '</button>' +
+        '<div class="md-nav-card-stats">' +
+          '<span class="md-nav-stat"><b>' + coins + '</b><i>Monedas</i></span>' +
+          '<span class="md-nav-stat"><b>' + games + '</b><i>Partidas</i></span>' +
+          '<span class="md-nav-stat"><b>' + rank + '</b><i>Puesto</i></span>' +
+        '</div>';
+      inner.querySelector('.md-nav-card-user').addEventListener('click', function () {
+        closeMenuThen(function () { openModal('profile'); });
+      });
+    } else {
+      inner.innerHTML =
+        '<p class="md-nav-card-title">Únete a Masonería Digital</p>' +
+        '<p class="md-nav-card-sub">Crea tu cuenta gratis y empieza a sumar monedas con cada artículo y cada partida.</p>' +
+        '<div class="md-nav-card-perks">' +
+          '<span class="md-nav-card-perk">Gana monedas leyendo</span>' +
+          '<span class="md-nav-card-perk">Trivia y clasificación</span>' +
+          '<span class="md-nav-card-perk">Tu biblioteca</span>' +
+        '</div>' +
+        '<button type="button" class="md-nav-card-cta">Crear cuenta gratis</button>' +
+        '<button type="button" class="md-nav-card-alt">Ya tengo cuenta, entrar</button>';
+      inner.querySelector('.md-nav-card-cta').addEventListener('click', function () {
+        closeMenuThen(function () { openModal('signup'); });
+      });
+      inner.querySelector('.md-nav-card-alt').addEventListener('click', function () {
+        closeMenuThen(function () { openModal('login'); });
+      });
+    }
+  }
+
   // -- header UI ------------------------------------------------------------
   function insertHeaderUI() {
     hamburgerEl = document.querySelector('.menu-button.w-nav-button') ||
@@ -487,31 +654,13 @@
     navbar.appendChild(triggerEl);
 
     triggerEl.addEventListener('click', function () {
-      if (session) openModal('profile'); else openModal('login');
+      // Deslogueado abrimos "Crear cuenta" (el chip dice "Únete"); esa vista
+      // ya ofrece "¿Ya tienes cuenta? Entrar" para quien vuelve.
+      if (session) openModal('profile'); else openModal('signup');
     });
 
-    // Nav link inside the expanded menu
-    var navOverlay = document.querySelector('.nav-color-overlay') ||
-                     document.querySelector('.nav-menu.w-nav-menu');
-    if (navOverlay) {
-      navLinkEl = document.createElement('a');
-      navLinkEl.href = '#';
-      navLinkEl.className = 'nav-link';
-      navLinkEl.id = 'md-auth-nav-link';
-      navLinkEl.textContent = 'Registrarse / Entrar';
-      navLinkEl.addEventListener('click', function (e) {
-        e.preventDefault();
-        // Close the Webflow menu if open, then open our modal
-        var btn = document.querySelector('.menu-button.w-nav-button.w--open');
-        if (btn) btn.click();
-        setTimeout(function () {
-          openModal(session ? 'profile' : 'login');
-        }, btn ? 220 : 0);
-      });
-      var navContentBlock = navOverlay.querySelector('.nav-content-block');
-      if (navContentBlock) navOverlay.insertBefore(navLinkEl, navContentBlock);
-      else navOverlay.appendChild(navLinkEl);
-    }
+    // Account card at the top of the expanded menu, above the first nav item.
+    insertNavCard();
 
     // Modal
     modalEl = document.createElement('div');
@@ -522,6 +671,7 @@
 
     wireModal();
     watchPosition();
+    watchMenuState();
     return true;
   }
 
@@ -584,6 +734,18 @@
     $('#md-auth-form-set-password', modalEl).addEventListener('submit', function (e) {
       e.preventDefault();
       handleSetPassword();
+    });
+    // Inline edit of the display name (profile view)
+    var nmeEdit = $('#md-auth-name-edit', modalEl);
+    if (nmeEdit) nmeEdit.addEventListener('click', function () { toggleNameEditor(true); });
+    var nmeSave = $('#md-auth-name-save', modalEl);
+    if (nmeSave) nmeSave.addEventListener('click', saveDisplayName);
+    var nmeCancel = $('#md-auth-name-cancel', modalEl);
+    if (nmeCancel) nmeCancel.addEventListener('click', function () { toggleNameEditor(false); });
+    var nmeInput = $('#md-auth-name-input', modalEl);
+    if (nmeInput) nmeInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); saveDisplayName(); }
+      else if (e.key === 'Escape') { e.preventDefault(); toggleNameEditor(false); }
     });
   }
 
@@ -856,11 +1018,16 @@
 
   // Mejor nombre disponible para mostrar. Orden: perfil → metadata.username
   // (registro normal) → metadata.name (invitados) → parte local del email.
+  // OJO: algunas filas de profiles guardan el literal "Usuario" (placeholder
+  // creado antes de conocer el nombre elegido). Lo saltamos y caemos al metadata,
+  // igual que hace la app de trivia (src/context/AuthContext.tsx), para que el
+  // chip muestre el nombre real y no el placeholder.
   function userDisplayName() {
     if (!session || !session.user) return 'Usuario';
     var meta = session.user.user_metadata || {};
-    return (profile && profile.username) ||
-           meta.username ||
+    var fromProfile = profile && profile.username;
+    if (fromProfile && fromProfile !== 'Usuario') return fromProfile;
+    return meta.username ||
            meta.name ||
            meta.full_name ||
            (session.user.email ? session.user.email.split('@')[0] : 'Usuario');
@@ -876,23 +1043,25 @@
       triggerEl.innerHTML =
         '<span class="md-auth-avatar">' + escapeHTML(initials(name)) + '</span>' +
         '<span class="md-auth-username">' + escapeHTML(name) + '</span>';
-      if (navLinkEl) navLinkEl.textContent = 'Mi perfil';
     } else {
       triggerEl.classList.remove('logged-in');
       triggerEl.classList.add('logged-out');
       triggerEl.setAttribute('aria-label', 'Entrar o registrarse');
-      triggerEl.innerHTML = ICON_USER_SVG;
-      if (navLinkEl) navLinkEl.textContent = 'Registrarse / Entrar';
+      // Con el 100% del tráfico deslogueado, el chip lleva etiqueta: un icono
+      // suelto no invita a nada. Se oculta por debajo de 480px (ver CSS).
+      triggerEl.innerHTML = ICON_USER_SVG + '<span class="md-auth-username">Únete</span>';
     }
+    renderNavCard();
     positionTrigger();
   }
 
   function renderProfileView() {
+    toggleNameEditor(false); // reset the inline name editor whenever the view opens
+    var dispName = userDisplayName();
     if (!profile) {
       // still render available info from session
-      var fallbackName = userDisplayName();
-      $('#md-auth-profile-avatar', modalEl).textContent = initials(fallbackName);
-      $('#md-auth-profile-username', modalEl).textContent = fallbackName;
+      $('#md-auth-profile-avatar', modalEl).textContent = initials(dispName);
+      $('#md-auth-profile-username', modalEl).textContent = dispName;
       $('#md-auth-profile-email', modalEl).textContent = (session && session.user && session.user.email) || '';
       $('#md-auth-profile-coins', modalEl).textContent = '0';
       $('#md-auth-profile-games', modalEl).textContent = '0';
@@ -900,13 +1069,60 @@
       loadLibrary();
       return;
     }
-    $('#md-auth-profile-avatar', modalEl).textContent = initials(profile.username || userDisplayName());
-    $('#md-auth-profile-username', modalEl).textContent = profile.username || userDisplayName();
+    $('#md-auth-profile-avatar', modalEl).textContent = initials(dispName);
+    $('#md-auth-profile-username', modalEl).textContent = dispName;
     $('#md-auth-profile-email', modalEl).textContent = (session.user && session.user.email) || '';
     $('#md-auth-profile-coins', modalEl).textContent = String(profile.profane_coins != null ? profile.profane_coins : 0);
     $('#md-auth-profile-games', modalEl).textContent = String(profile.games_played != null ? profile.games_played : 0);
     $('#md-auth-profile-ranking', modalEl).textContent = '#' + (profile.ranking || '—');
     loadLibrary();
+  }
+
+  // -- edit display name (inline, in the profile view) ----------------------
+  function toggleNameEditor(show) {
+    var editor = $('#md-auth-name-editor', modalEl);
+    var editBtn = $('#md-auth-name-edit', modalEl);
+    if (!editor) return;
+    if (show) {
+      var input = $('#md-auth-name-input', modalEl);
+      if (input) input.value = userDisplayName();
+      editor.style.display = 'flex';
+      if (editBtn) editBtn.style.visibility = 'hidden';
+      if (input) { input.focus(); input.select(); }
+    } else {
+      editor.style.display = 'none';
+      if (editBtn) editBtn.style.visibility = 'visible';
+    }
+  }
+
+  function saveDisplayName() {
+    if (!session || !session.user) return;
+    var input = $('#md-auth-name-input', modalEl);
+    var saveBtn = $('#md-auth-name-save', modalEl);
+    var name = ((input && input.value) || '').trim();
+    if (!name) { toast('El nombre no puede estar vacío.', 'error'); return; }
+    if (name.length > 40) name = name.slice(0, 40);
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Guardando…';
+    // profiles.username is the canonical display field (chip + leaderboard read it).
+    supa.from('profiles').update({ username: name }).eq('id', session.user.id).then(function (res) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Guardar';
+      if (res.error) { toast('No se pudo guardar el nombre.', 'error'); return; }
+      // Mirror into auth metadata so the trivia app and any future profile
+      // re-creation agree on the chosen name (best-effort, non-blocking).
+      supa.auth.updateUser({ data: { username: name } }).then(function () {}, function () {});
+      if (!profile) profile = {};
+      profile.username = name;
+      toggleNameEditor(false);
+      renderProfileView();
+      renderTrigger();
+      toast('Nombre actualizado.', 'success');
+    }, function () {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Guardar';
+      toast('No se pudo guardar el nombre.', 'error');
+    });
   }
 
   // -- blog gamification (read-to-earn + bookmarks) -------------------------
